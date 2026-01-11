@@ -74,9 +74,68 @@
             border: 2px solid #333;
             background-color: #000;
         }
+
+        #leaderboard {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: white;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #leaderboard h3 {
+            margin-top: 0;
+        }
+
+        /* Модальное окно */
+        #nameModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #nameForm {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #nameInput {
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        #startButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
+    <!-- Модальное окно для ввода имени -->
+    <div id="nameModal">
+        <div id="nameForm">
+            <h2>Введите ваше имя</h2>
+            <input type="text" id="nameInput" placeholder="Имя" maxlength="20">
+            <br>
+            <button id="startButton">Начать игру</button>
+        </div>
+    </div>
+
     <div class="header">
         <h1>styssie_game</h1>
         <div class="subtitle">змейка</div>
@@ -86,6 +145,16 @@
     </div>
     <canvas id="gameCanvas" width="600" height="600"></canvas>
     <div id="achievement"></div>
+
+    <!-- Таблица лидеров -->
+    <div id="leaderboard">
+        <h3>🏆 Таблица лидеров</h3>
+        <ul id="topScoresList">
+            {% for row in top_scores %}
+            <li>{{ row[0] }} — {{ row[1] }} ({{ row[2][:19] }})</li>
+            {% endfor %}
+        </ul>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -112,6 +181,9 @@
 
         // Уровень змейки (в зависимости от счёта)
         let snakeLevel = 1;
+
+        // Имя игрока
+        let playerName = '';
 
         // Функция обновления уровня змейки
         function updateSnakeLevel() {
@@ -499,28 +571,51 @@
         }
 
         function gameLoop(currentTime) {
-            window.requestAnimationFrame(gameLoop);
+            if (gameActive) {
+                window.requestAnimationFrame(gameLoop);
 
-            if (currentTime - lastMoveTime >= moveInterval && gameActive) {
-                moveSnake();
-                lastMoveTime = currentTime;
-            }
+                if (currentTime - lastMoveTime >= moveInterval) {
+                    moveSnake();
+                    lastMoveTime = currentTime;
+                }
 
-            try {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                drawSnake();
-                drawFood();
-            } catch (e) {
-                console.error('Ошибка в gameLoop:', e);
+                try {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    drawSnake();
+                    drawFood();
+                } catch (e) {
+                    console.error('Ошибка в gameLoop:', e);
+                }
             }
         }
 
         function gameOver() {
             gameActive = false;
-            setTimeout(() => {
-                alert('Игра окончена! Счёт: ' + score);
-                resetGame();
-            }, 100);
+
+            if (playerName) {
+                // Отправляем результат на сервер
+                fetch('/save_score', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: playerName, score: score})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('Результат сохранён.');
+                    } else {
+                        console.log('Ошибка сохранения.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Ошибка при сохранении результата:', err);
+                });
+            }
+
+            // Перезапускаем игру
+            resetGame();
+            gameActive = true;
+            window.requestAnimationFrame(gameLoop);
         }
 
         document.addEventListener('keydown', e => {
@@ -562,10 +657,41 @@
             }
         });
 
+        // Функция для получения имени пользователя
+        function getPlayerName() {
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                playerName = savedName;
+                document.getElementById('nameModal').style.display = 'none';
+                resetGame();
+                gameActive = true;
+                window.requestAnimationFrame(gameLoop);
+            } else {
+                document.getElementById('nameModal').style.display = 'flex';
+            }
+        }
+
+        // Обработчик кнопки "Начать игру"
+        document.getElementById('startButton').addEventListener('click', () => {
+            const input = document.getElementById('nameInput');
+            playerName = input.value.trim();
+
+            if (playerName) {
+                // Сохраняем имя в localStorage
+                localStorage.setItem('playerName', playerName);
+                document.getElementById('nameModal').style.display = 'none';
+                resetGame();
+                gameActive = true;
+                window.requestAnimationFrame(gameLoop);
+            } else {
+                alert('Введите имя!');
+            }
+        });
+
+        // Запускаем с загрузкой рекордов
         try {
             loadBestScore();
-            resetGame();
-            window.requestAnimationFrame(gameLoop);
+            getPlayerName(); // Проверяем имя
         } catch (e) {
             console.error('Ошибка при запуске игры:', e);
             alert('Ошибка при запуске игры. Проверь консоль.');
