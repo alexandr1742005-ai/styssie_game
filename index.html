@@ -47,6 +47,29 @@
             margin-top: 5px;
         }
 
+        #achievement {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: gold;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            display: none;
+            z-index: 100;
+            animation: fadeInOut 3s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
         canvas {
             border: 2px solid #333;
             background-color: #000;
@@ -62,6 +85,7 @@
         <div id="newRecord">Новый рекорд!</div>
     </div>
     <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div id="achievement"></div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -78,13 +102,31 @@
             throw new Error('Context не найден!');
         }
 
-        const gridSize = 18; // чуть меньше
-        const tileCount = Math.floor(canvas.width / gridSize); // 33x33
+        const gridSize = 18;
+        const tileCount = Math.floor(canvas.width / gridSize);
 
         let snake, food, dx, dy, score, bestScore, newRecordShown;
         let lastMoveTime = 0;
-        let gameActive = true; // Состояние игры
-        const moveInterval = 100; // Время между движениями в мс
+        let gameActive = true;
+        const moveInterval = 100;
+
+        // Уровень змейки (в зависимости от счёта)
+        let snakeLevel = 1;
+
+        // Функция обновления уровня змейки
+        function updateSnakeLevel() {
+            snakeLevel = Math.floor(score / 10) + 1;
+        }
+
+        // Показать достижение
+        function showAchievement(text) {
+            const achievementDiv = document.getElementById('achievement');
+            achievementDiv.textContent = text;
+            achievementDiv.style.display = 'block';
+            setTimeout(() => {
+                achievementDiv.style.display = 'none';
+            }, 3000);
+        }
 
         // Загружаем рекорд из localStorage
         function loadBestScore() {
@@ -119,7 +161,8 @@
             newRecordShown = false;
             document.getElementById('score').textContent = 'Счёт: 0';
             document.getElementById('newRecord').style.display = 'none';
-            gameActive = true; // Возобновляем игру
+            gameActive = true;
+            snakeLevel = 1;
         }
 
         // Генерируем еду в свободной клетке
@@ -134,7 +177,6 @@
                     y: Math.floor(Math.random() * tileCount)
                 };
 
-                // Проверяем, не пересекается ли с змейкой
                 for (let segment of snake) {
                     if (segment.x === newFood.x && segment.y === newFood.y) {
                         overlapping = true;
@@ -144,19 +186,19 @@
             } while (overlapping);
 
             food = newFood;
-            console.log('Сгенерирована еда:', food); // Отладка
+            console.log('Сгенерирована еда:', food);
         }
 
         function drawSnake() {
             try {
-                console.log('Рисуем змейку:', snake); // Отладка
+                console.log('Рисуем змейку:', snake);
 
                 if (!snake || snake.length === 0) {
                     console.warn('Змейка пустая!');
                     return;
                 }
 
-                // Рисуем тело змейки (овальные сегменты без волны)
+                // Рисуем тело змейки
                 for (let i = 0; i < snake.length; i++) {
                     const segment = snake[i];
                     const centerX = segment.x * gridSize + gridSize / 2;
@@ -166,8 +208,23 @@
                     const width = gridSize / 2;
                     const height = gridSize / 2.5;
 
-                    // Цвет — зелёный, без градиента
-                    ctx.fillStyle = 'lime';
+                    // Цвет змейки в зависимости от уровня
+                    let fillStyle = 'lime';
+
+                    if (snakeLevel >= 2) {
+                        // Золотая змея
+                        fillStyle = '#FFD700';
+                    }
+                    if (snakeLevel >= 3) {
+                        // Огненная змея
+                        fillStyle = '#FF4500';
+                    }
+                    if (snakeLevel >= 4) {
+                        // Сияющая змея
+                        fillStyle = '#00FFFF';
+                    }
+
+                    ctx.fillStyle = fillStyle;
 
                     // Рисуем овальный сегмент
                     ctx.beginPath();
@@ -182,7 +239,7 @@
                     );
                     ctx.fill();
 
-                    // Рисуем чешую на сегменте (мелкие линии)
+                    // Чешуя
                     ctx.strokeStyle = 'rgba(0, 100, 0, 0.2)';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
@@ -198,13 +255,18 @@
                     ctx.stroke();
                 }
 
-                // Рисуем голову змейки (зелёная, с глазами и бликами)
+                // Рисуем голову
                 const head = snake[0];
                 const centerX = head.x * gridSize + gridSize / 2;
                 const centerY = head.y * gridSize + gridSize / 2;
 
-                // Голова — овальная, зелёная (без градиента)
-                ctx.fillStyle = '#00cc00'; // зелёный
+                // Цвет головы
+                let headColor = '#00cc00';
+                if (snakeLevel >= 2) headColor = '#FFD700';
+                if (snakeLevel >= 3) headColor = '#FF4500';
+                if (snakeLevel >= 4) headColor = '#00FFFF';
+
+                ctx.fillStyle = headColor;
                 ctx.beginPath();
                 ctx.ellipse(
                     centerX,
@@ -217,9 +279,8 @@
                 );
                 ctx.fill();
 
-                // Рисуем глаза на голове
+                // Глаза
                 ctx.fillStyle = 'white';
-                // Левый глаз
                 ctx.beginPath();
                 ctx.arc(
                     head.x * gridSize + gridSize / 3,
@@ -230,7 +291,6 @@
                 );
                 ctx.fill();
 
-                // Правый глаз
                 ctx.beginPath();
                 ctx.arc(
                     head.x * gridSize + 2 * gridSize / 3,
@@ -243,7 +303,6 @@
 
                 // Зрачки
                 ctx.fillStyle = 'black';
-                // Левый зрачок
                 ctx.beginPath();
                 ctx.arc(
                     head.x * gridSize + gridSize / 3,
@@ -254,7 +313,6 @@
                 );
                 ctx.fill();
 
-                // Правый зрачок
                 ctx.beginPath();
                 ctx.arc(
                     head.x * gridSize + 2 * gridSize / 3,
@@ -305,20 +363,22 @@
 
         function drawFood() {
             try {
-                console.log('Рисуем еду:', food); // Отладка
+                console.log('Рисуем еду:', food);
 
                 if (!food) {
                     console.warn('Еда не определена!');
                     return;
                 }
 
-                // Рисуем реалистичное яблоко
+                // Если это 10-е, 20-е, 30-е... яблоко — рисуем золотое
+                const isGolden = score > 0 && score % 10 === 0;
+
                 const centerX = food.x * gridSize + gridSize / 2;
                 const centerY = food.y * gridSize + gridSize / 2;
 
-                // Создаём градиент для яблока
+                // Градиент для яблока
                 const gradient = ctx.createRadialGradient(
-                    centerX - gridSize / 6, // смещение для блика
+                    centerX - gridSize / 6,
                     centerY - gridSize / 6,
                     0,
                     centerX,
@@ -326,9 +386,17 @@
                     gridSize / 2
                 );
 
-                gradient.addColorStop(0, '#ff6347'); // светло-красный (томат)
-                gradient.addColorStop(0.7, '#dc143c'); // тёмно-красный
-                gradient.addColorStop(1, '#8b0000'); // тёмно-красный
+                if (isGolden) {
+                    // Золотое яблоко
+                    gradient.addColorStop(0, '#FFD700'); // золото
+                    gradient.addColorStop(0.7, '#B8860B'); // тёмное золото
+                    gradient.addColorStop(1, '#8B6508'); // коричневатое золото
+                } else {
+                    // Обычное яблоко
+                    gradient.addColorStop(0, '#ff6347');
+                    gradient.addColorStop(0.7, '#dc143c');
+                    gradient.addColorStop(1, '#8b0000');
+                }
 
                 ctx.fillStyle = gradient;
 
@@ -343,7 +411,7 @@
                 );
                 ctx.fill();
 
-                // Рисуем блик (как будто свет падает сверху)
+                // Блик
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
                 ctx.beginPath();
                 ctx.arc(
@@ -355,8 +423,8 @@
                 );
                 ctx.fill();
 
-                // Рисуем стебелёк
-                ctx.strokeStyle = '#8B4513'; // коричневый
+                // Стебелёк
+                ctx.strokeStyle = '#8B4513';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(centerX, centerY - gridSize / 2);
@@ -368,17 +436,15 @@
         }
 
         function moveSnake() {
-            if (!gameActive) return; // Не двигаем, если игра не активна
+            if (!gameActive) return;
 
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
 
-            // Проверка столкновения со стеной
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
                 gameOver();
                 return;
             }
 
-            // Проверка столкновения с собой
             for (let i = 1; i < snake.length; i++) {
                 if (snake[i].x === head.x && snake[i].y === head.y) {
                     gameOver();
@@ -388,7 +454,6 @@
 
             snake.unshift(head);
 
-            // Если съели еду
             if (head.x === food.x && head.y === food.y) {
                 score++;
                 document.getElementById('score').textContent = 'Счёт: ' + score;
@@ -404,6 +469,28 @@
                     }
                 }
 
+                // Проверяем уровень
+                updateSnakeLevel();
+
+                // Показываем достижение каждые 10 уровней
+                if (score % 10 === 0) {
+                    let achievementText = '';
+                    switch (snakeLevel) {
+                        case 2:
+                            achievementText = 'Достижение: Золотая змея!';
+                            break;
+                        case 3:
+                            achievementText = 'Достижение: Огненная змея!';
+                            break;
+                        case 4:
+                            achievementText = 'Достижение: Сияющая змея!';
+                            break;
+                        default:
+                            achievementText = `Достижение: Уровень ${snakeLevel}!`;
+                    }
+                    showAchievement(achievementText);
+                }
+
                 // Создаём новую еду
                 generateFood();
             } else {
@@ -414,13 +501,10 @@
         function gameLoop(currentTime) {
             window.requestAnimationFrame(gameLoop);
 
-            // Вычисляем, прошло ли достаточно времени с последнего движения
             if (currentTime - lastMoveTime >= moveInterval && gameActive) {
                 moveSnake();
                 lastMoveTime = currentTime;
             }
-
-            // Убрали обновление waveOffset
 
             try {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -440,48 +524,35 @@
         }
 
         document.addEventListener('keydown', e => {
-            if (!gameActive) return; // Игнорируем, если игра не активна
+            if (!gameActive) return;
 
-            // Предотвращаем "разворот на 180"
             switch(e.code) {
-                // WASD (английская)
                 case 'KeyW':
-                // Ц (русская)
                 case 'KeyC':
-                // Стрелка вверх
                 case 'ArrowUp':
                     if (dy === 0) {
                         dx = 0;
                         dy = -1;
                     }
                     break;
-                // S (английская)
                 case 'KeyS':
-                // Ф (русская)
                 case 'KeyF':
-                // Стрелка вниз
                 case 'ArrowDown':
                     if (dy === 0) {
                         dx = 0;
                         dy = 1;
                     }
                     break;
-                // A (английская)
                 case 'KeyA':
-                // Ы (русская)
                 case 'KeyY':
-                // Стрелка влево
                 case 'ArrowLeft':
                     if (dx === 0) {
                         dx = -1;
                         dy = 0;
                     }
                     break;
-                // D (английская)
                 case 'KeyD':
-                // В (русская)
                 case 'KeyV':
-                // Стрелка вправо
                 case 'ArrowRight':
                     if (dx === 0) {
                         dx = 1;
@@ -491,7 +562,6 @@
             }
         });
 
-        // Запускаем игру
         try {
             loadBestScore();
             resetGame();
