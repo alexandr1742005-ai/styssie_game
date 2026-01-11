@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>styssie_game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            margin: 5px 0;
+            font-size: 18px;
+            color: #555;
+        }
+
+        #score {
+            font-size: 24px;
+            margin: 5px 0;
+        }
+
+        #bestScore {
+            font-size: 20px;
+            color: #007acc;
+            margin: 5px 0;
+        }
+
+        #newRecord {
+            font-size: 18px;
+            color: red;
+            display: none;
+            margin-top: 5px;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>styssie_game</h1>
+        <div class="subtitle">змейка</div>
+        <div id="score">Счёт: 0</div>
+        <div id="bestScore">Рекорд: 0</div>
+        <div id="newRecord">Новый рекорд!</div>
+    </div>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        if (!canvas) {
+            console.error('Canvas не найден!');
+            alert('Ошибка: Canvas не найден!');
+            throw new Error('Canvas не найден!');
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Context не найден!');
+            alert('Ошибка: Context не найден!');
+            throw new Error('Context не найден!');
+        }
+
+        const gridSize = 18; // чуть меньше
+        const tileCount = Math.floor(canvas.width / gridSize); // 33x33
+
+        let snake, food, dx, dy, score, bestScore, newRecordShown;
+        let lastMoveTime = 0;
+        let gameActive = true; // Состояние игры
+        const moveInterval = 100; // Время между движениями в мс
+
+        // Загружаем рекорд из localStorage
+        function loadBestScore() {
+            try {
+                const saved = localStorage.getItem('snakeBestScore');
+                bestScore = saved ? parseInt(saved) : 0;
+                document.getElementById('bestScore').textContent = 'Рекорд: ' + bestScore;
+            } catch (e) {
+                console.error('Ошибка загрузки рекорда:', e);
+                bestScore = 0;
+            }
+        }
+
+        // Сохраняем рекорд в localStorage
+        function saveBestScore() {
+            try {
+                localStorage.setItem('snakeBestScore', bestScore);
+            } catch (e) {
+                console.error('Ошибка сохранения рекорда:', e);
+            }
+        }
+
+        // Функция сброса игры
+        function resetGame() {
+            snake = [
+                {x: 10, y: 10}
+            ];
+            generateFood();
+            dx = 0;
+            dy = 0;
+            score = 0;
+            newRecordShown = false;
+            document.getElementById('score').textContent = 'Счёт: 0';
+            document.getElementById('newRecord').style.display = 'none';
+            gameActive = true; // Возобновляем игру
+        }
+
+        // Генерируем еду в свободной клетке
+        function generateFood() {
+            let newFood;
+            let overlapping;
+
+            do {
+                overlapping = false;
+                newFood = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+
+                // Проверяем, не пересекается ли с змейкой
+                for (let segment of snake) {
+                    if (segment.x === newFood.x && segment.y === newFood.y) {
+                        overlapping = true;
+                        break;
+                    }
+                }
+            } while (overlapping);
+
+            food = newFood;
+            console.log('Сгенерирована еда:', food); // Отладка
+        }
+
+        function drawSnake() {
+            try {
+                console.log('Рисуем змейку:', snake); // Отладка
+
+                if (!snake || snake.length === 0) {
+                    console.warn('Змейка пустая!');
+                    return;
+                }
+
+                // Рисуем тело змейки (овальные сегменты без волны)
+                for (let i = 0; i < snake.length; i++) {
+                    const segment = snake[i];
+                    const centerX = segment.x * gridSize + gridSize / 2;
+                    const centerY = segment.y * gridSize + gridSize / 2;
+
+                    // Овальный сегмент
+                    const width = gridSize / 2;
+                    const height = gridSize / 2.5;
+
+                    // Цвет — зелёный, без градиента
+                    ctx.fillStyle = 'lime';
+
+                    // Рисуем овальный сегмент
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        centerX,
+                        centerY,
+                        width,
+                        height,
+                        0,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+
+                    // Рисуем чешую на сегменте (мелкие линии)
+                    ctx.strokeStyle = 'rgba(0, 100, 0, 0.2)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    for (let j = 0; j < 3; j++) {
+                        const angle = (j / 3) * Math.PI * 2;
+                        const x1 = centerX + Math.cos(angle) * (width * 0.6);
+                        const y1 = centerY + Math.sin(angle) * (height * 0.6);
+                        const x2 = centerX + Math.cos(angle) * (width * 0.8);
+                        const y2 = centerY + Math.sin(angle) * (height * 0.8);
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                    }
+                    ctx.stroke();
+                }
+
+                // Рисуем голову змейки (зелёная, с глазами и бликами)
+                const head = snake[0];
+                const centerX = head.x * gridSize + gridSize / 2;
+                const centerY = head.y * gridSize + gridSize / 2;
+
+                // Голова — овальная, зелёная (без градиента)
+                ctx.fillStyle = '#00cc00'; // зелёный
+                ctx.beginPath();
+                ctx.ellipse(
+                    centerX,
+                    centerY,
+                    gridSize / 2,
+                    gridSize / 2.5,
+                    0,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Рисуем глаза на голове
+                ctx.fillStyle = 'white';
+                // Левый глаз
+                ctx.beginPath();
+                ctx.arc(
+                    head.x * gridSize + gridSize / 3,
+                    head.y * gridSize + gridSize / 3,
+                    gridSize / 8,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Правый глаз
+                ctx.beginPath();
+                ctx.arc(
+                    head.x * gridSize + 2 * gridSize / 3,
+                    head.y * gridSize + gridSize / 3,
+                    gridSize / 8,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Зрачки
+                ctx.fillStyle = 'black';
+                // Левый зрачок
+                ctx.beginPath();
+                ctx.arc(
+                    head.x * gridSize + gridSize / 3,
+                    head.y * gridSize + gridSize / 3,
+                    gridSize / 16,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Правый зрачок
+                ctx.beginPath();
+                ctx.arc(
+                    head.x * gridSize + 2 * gridSize / 3,
+                    head.y * gridSize + gridSize / 3,
+                    gridSize / 16,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Блик на глазах
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(
+                    head.x * gridSize + gridSize / 3 + gridSize / 16,
+                    head.y * gridSize + gridSize / 3 - gridSize / 16,
+                    gridSize / 32,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(
+                    head.x * gridSize + 2 * gridSize / 3 + gridSize / 16,
+                    head.y * gridSize + gridSize / 3 - gridSize / 16,
+                    gridSize / 32,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Блик на голове
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(
+                    centerX - gridSize / 6,
+                    centerY - gridSize / 6,
+                    gridSize / 6,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            } catch (e) {
+                console.error('Ошибка при рисовании змейки:', e);
+            }
+        }
+
+        function drawFood() {
+            try {
+                console.log('Рисуем еду:', food); // Отладка
+
+                if (!food) {
+                    console.warn('Еда не определена!');
+                    return;
+                }
+
+                // Рисуем реалистичное яблоко
+                const centerX = food.x * gridSize + gridSize / 2;
+                const centerY = food.y * gridSize + gridSize / 2;
+
+                // Создаём градиент для яблока
+                const gradient = ctx.createRadialGradient(
+                    centerX - gridSize / 6, // смещение для блика
+                    centerY - gridSize / 6,
+                    0,
+                    centerX,
+                    centerY,
+                    gridSize / 2
+                );
+
+                gradient.addColorStop(0, '#ff6347'); // светло-красный (томат)
+                gradient.addColorStop(0.7, '#dc143c'); // тёмно-красный
+                gradient.addColorStop(1, '#8b0000'); // тёмно-красный
+
+                ctx.fillStyle = gradient;
+
+                // Рисуем основу яблока
+                ctx.beginPath();
+                ctx.arc(
+                    centerX,
+                    centerY,
+                    gridSize / 2,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Рисуем блик (как будто свет падает сверху)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.beginPath();
+                ctx.arc(
+                    centerX - gridSize / 6,
+                    centerY - gridSize / 6,
+                    gridSize / 6,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Рисуем стебелёк
+                ctx.strokeStyle = '#8B4513'; // коричневый
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY - gridSize / 2);
+                ctx.lineTo(centerX + gridSize / 6, centerY - gridSize / 2 - gridSize / 4);
+                ctx.stroke();
+            } catch (e) {
+                console.error('Ошибка при рисовании еды:', e);
+            }
+        }
+
+        function moveSnake() {
+            if (!gameActive) return; // Не двигаем, если игра не активна
+
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+            // Проверка столкновения со стеной
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                gameOver();
+                return;
+            }
+
+            // Проверка столкновения с собой
+            for (let i = 1; i < snake.length; i++) {
+                if (snake[i].x === head.x && snake[i].y === head.y) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            // Если съели еду
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                document.getElementById('score').textContent = 'Счёт: ' + score;
+
+                // Проверяем рекорд
+                if (score > bestScore) {
+                    bestScore = score;
+                    document.getElementById('bestScore').textContent = 'Рекорд: ' + bestScore;
+                    saveBestScore();
+                    if (!newRecordShown) {
+                        document.getElementById('newRecord').style.display = 'block';
+                        newRecordShown = true;
+                    }
+                }
+
+                // Создаём новую еду
+                generateFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function gameLoop(currentTime) {
+            window.requestAnimationFrame(gameLoop);
+
+            // Вычисляем, прошло ли достаточно времени с последнего движения
+            if (currentTime - lastMoveTime >= moveInterval && gameActive) {
+                moveSnake();
+                lastMoveTime = currentTime;
+            }
+
+            // Убрали обновление waveOffset
+
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawSnake();
+                drawFood();
+            } catch (e) {
+                console.error('Ошибка в gameLoop:', e);
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            setTimeout(() => {
+                alert('Игра окончена! Счёт: ' + score);
+                resetGame();
+            }, 100);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (!gameActive) return; // Игнорируем, если игра не активна
+
+            // Предотвращаем "разворот на 180"
+            switch(e.code) {
+                // WASD (английская)
+                case 'KeyW':
+                // Ц (русская)
+                case 'KeyC':
+                // Стрелка вверх
+                case 'ArrowUp':
+                    if (dy === 0) {
+                        dx = 0;
+                        dy = -1;
+                    }
+                    break;
+                // S (английская)
+                case 'KeyS':
+                // Ф (русская)
+                case 'KeyF':
+                // Стрелка вниз
+                case 'ArrowDown':
+                    if (dy === 0) {
+                        dx = 0;
+                        dy = 1;
+                    }
+                    break;
+                // A (английская)
+                case 'KeyA':
+                // Ы (русская)
+                case 'KeyY':
+                // Стрелка влево
+                case 'ArrowLeft':
+                    if (dx === 0) {
+                        dx = -1;
+                        dy = 0;
+                    }
+                    break;
+                // D (английская)
+                case 'KeyD':
+                // В (русская)
+                case 'KeyV':
+                // Стрелка вправо
+                case 'ArrowRight':
+                    if (dx === 0) {
+                        dx = 1;
+                        dy = 0;
+                    }
+                    break;
+            }
+        });
+
+        // Запускаем игру
+        try {
+            loadBestScore();
+            resetGame();
+            window.requestAnimationFrame(gameLoop);
+        } catch (e) {
+            console.error('Ошибка при запуске игры:', e);
+            alert('Ошибка при запуске игры. Проверь консоль.');
+        }
+    </script>
+</body>
+</html>
