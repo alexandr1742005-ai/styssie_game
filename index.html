@@ -150,9 +150,7 @@
     <div id="leaderboard">
         <h3>🏆 Таблица лидеров</h3>
         <ul id="topScoresList">
-            {% for row in top_scores %}
-            <li>{{ row[0] }} — {{ row[1] }} ({{ row[2][:19] }})</li>
-            {% endfor %}
+            <!-- Список будет заполняться динамически -->
         </ul>
     </div>
 
@@ -171,7 +169,8 @@
             throw new Error('Context не найден!');
         }
 
-        const gridSize = 18;
+        // Размер сетки (можно уменьшить, если нужно)
+        const gridSize = 20;
         const tileCount = Math.floor(canvas.width / gridSize);
 
         let snake, food, dx, dy, score, bestScore, newRecordShown;
@@ -179,15 +178,12 @@
         let gameActive = true;
         const moveInterval = 100;
 
-        // Уровень змейки (в зависимости от счёта)
-        let snakeLevel = 1;
-
         // Имя игрока
         let playerName = '';
 
         // Функция обновления уровня змейки
         function updateSnakeLevel() {
-            snakeLevel = Math.floor(score / 10) + 1;
+            // Пока не используем
         }
 
         // Показать достижение
@@ -223,6 +219,7 @@
 
         // Функция сброса игры
         function resetGame() {
+            // Начальная позиция — центр
             snake = [
                 {x: 10, y: 10}
             ];
@@ -234,7 +231,6 @@
             document.getElementById('score').textContent = 'Счёт: 0';
             document.getElementById('newRecord').style.display = 'none';
             gameActive = true;
-            snakeLevel = 1;
         }
 
         // Генерируем еду в свободной клетке
@@ -270,79 +266,42 @@
                     return;
                 }
 
-                // Рисуем тело змейки
-                for (let i = 0; i < snake.length; i++) {
+                // Чёрный фон
+                ctx.fillStyle = '#000'; // чёрный
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Рисуем тело змейки как плавную линию
+                ctx.lineWidth = 12;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+
+                // Цвет змейки — зелёный
+                ctx.strokeStyle = '#4ade80'; // ярко-зелёный
+                ctx.fillStyle = '#4ade80';
+
+                ctx.beginPath();
+                ctx.moveTo(snake[0].x * gridSize + gridSize / 2, snake[0].y * gridSize + gridSize / 2);
+
+                for (let i = 1; i < snake.length; i++) {
                     const segment = snake[i];
                     const centerX = segment.x * gridSize + gridSize / 2;
                     const centerY = segment.y * gridSize + gridSize / 2;
-
-                    // Овальный сегмент
-                    const width = gridSize / 2;
-                    const height = gridSize / 2.5;
-
-                    // Цвет змейки в зависимости от уровня
-                    let fillStyle = 'lime';
-
-                    if (snakeLevel >= 2) {
-                        // Золотая змея
-                        fillStyle = '#FFD700';
-                    }
-                    if (snakeLevel >= 3) {
-                        // Огненная змея
-                        fillStyle = '#FF4500';
-                    }
-                    if (snakeLevel >= 4) {
-                        // Сияющая змея
-                        fillStyle = '#00FFFF';
-                    }
-
-                    ctx.fillStyle = fillStyle;
-
-                    // Рисуем овальный сегмент
-                    ctx.beginPath();
-                    ctx.ellipse(
-                        centerX,
-                        centerY,
-                        width,
-                        height,
-                        0,
-                        0,
-                        Math.PI * 2
-                    );
-                    ctx.fill();
-
-                    // Чешуя
-                    ctx.strokeStyle = 'rgba(0, 100, 0, 0.2)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    for (let j = 0; j < 3; j++) {
-                        const angle = (j / 3) * Math.PI * 2;
-                        const x1 = centerX + Math.cos(angle) * (width * 0.6);
-                        const y1 = centerY + Math.sin(angle) * (height * 0.6);
-                        const x2 = centerX + Math.cos(angle) * (width * 0.8);
-                        const y2 = centerY + Math.sin(angle) * (height * 0.8);
-                        ctx.moveTo(x1, y1);
-                        ctx.lineTo(x2, y2);
-                    }
-                    ctx.stroke();
+                    ctx.lineTo(centerX, centerY);
                 }
+
+                ctx.stroke();
 
                 // Рисуем голову
                 const head = snake[0];
-                const centerX = head.x * gridSize + gridSize / 2;
-                const centerY = head.y * gridSize + gridSize / 2;
+                const headX = head.x * gridSize + gridSize / 2;
+                const headY = head.y * gridSize + gridSize / 2;
 
-                // Цвет головы
-                let headColor = '#00cc00';
-                if (snakeLevel >= 2) headColor = '#FFD700';
-                if (snakeLevel >= 3) headColor = '#FF4500';
-                if (snakeLevel >= 4) headColor = '#00FFFF';
-
-                ctx.fillStyle = headColor;
+                // Голова — овальная, золотая
+                ctx.fillStyle = '#FFD700';
                 ctx.beginPath();
                 ctx.ellipse(
-                    centerX,
-                    centerY,
+                    headX,
+                    headY,
                     gridSize / 2,
                     gridSize / 2.5,
                     0,
@@ -351,22 +310,24 @@
                 );
                 ctx.fill();
 
-                // Глаза
+                // Рисуем глаза на голове
                 ctx.fillStyle = 'white';
+                // Левый глаз
                 ctx.beginPath();
                 ctx.arc(
-                    head.x * gridSize + gridSize / 3,
-                    head.y * gridSize + gridSize / 3,
+                    headX - gridSize / 4,
+                    headY - gridSize / 6,
                     gridSize / 8,
                     0,
                     Math.PI * 2
                 );
                 ctx.fill();
 
+                // Правый глаз
                 ctx.beginPath();
                 ctx.arc(
-                    head.x * gridSize + 2 * gridSize / 3,
-                    head.y * gridSize + gridSize / 3,
+                    headX + gridSize / 4,
+                    headY - gridSize / 6,
                     gridSize / 8,
                     0,
                     Math.PI * 2
@@ -375,20 +336,22 @@
 
                 // Зрачки
                 ctx.fillStyle = 'black';
+                // Левый зрачок
                 ctx.beginPath();
                 ctx.arc(
-                    head.x * gridSize + gridSize / 3,
-                    head.y * gridSize + gridSize / 3,
+                    headX - gridSize / 4,
+                    headY - gridSize / 6,
                     gridSize / 16,
                     0,
                     Math.PI * 2
                 );
                 ctx.fill();
 
+                // Правый зрачок
                 ctx.beginPath();
                 ctx.arc(
-                    head.x * gridSize + 2 * gridSize / 3,
-                    head.y * gridSize + gridSize / 3,
+                    headX + gridSize / 4,
+                    headY - gridSize / 6,
                     gridSize / 16,
                     0,
                     Math.PI * 2
@@ -399,8 +362,8 @@
                 ctx.fillStyle = 'white';
                 ctx.beginPath();
                 ctx.arc(
-                    head.x * gridSize + gridSize / 3 + gridSize / 16,
-                    head.y * gridSize + gridSize / 3 - gridSize / 16,
+                    headX - gridSize / 4 + gridSize / 16,
+                    headY - gridSize / 6 - gridSize / 16,
                     gridSize / 32,
                     0,
                     Math.PI * 2
@@ -409,8 +372,8 @@
 
                 ctx.beginPath();
                 ctx.arc(
-                    head.x * gridSize + 2 * gridSize / 3 + gridSize / 16,
-                    head.y * gridSize + gridSize / 3 - gridSize / 16,
+                    headX + gridSize / 4 + gridSize / 16,
+                    headY - gridSize / 6 - gridSize / 16,
                     gridSize / 32,
                     0,
                     Math.PI * 2
@@ -421,8 +384,8 @@
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
                 ctx.beginPath();
                 ctx.arc(
-                    centerX - gridSize / 6,
-                    centerY - gridSize / 6,
+                    headX - gridSize / 6,
+                    headY - gridSize / 6,
                     gridSize / 6,
                     0,
                     Math.PI * 2
@@ -433,78 +396,21 @@
             }
         }
 
+        // Яблоко как яблоко
         function drawFood() {
-            try {
-                console.log('Рисуем еду:', food);
+            // Координаты центра яблока
+            const centerX = food.x * gridSize + gridSize / 2;
+            const centerY = food.y * gridSize + gridSize / 2;
 
-                if (!food) {
-                    console.warn('Еда не определена!');
-                    return;
-                }
+            // Тело яблока
+            ctx.fillStyle = '#ef4444'; // красное яблоко
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, gridSize / 2, 0, Math.PI * 2);
+            ctx.fill();
 
-                // Если это 10-е, 20-е, 30-е... яблоко — рисуем золотое
-                const isGolden = score > 0 && score % 10 === 0;
-
-                const centerX = food.x * gridSize + gridSize / 2;
-                const centerY = food.y * gridSize + gridSize / 2;
-
-                // Градиент для яблока
-                const gradient = ctx.createRadialGradient(
-                    centerX - gridSize / 6,
-                    centerY - gridSize / 6,
-                    0,
-                    centerX,
-                    centerY,
-                    gridSize / 2
-                );
-
-                if (isGolden) {
-                    // Золотое яблоко
-                    gradient.addColorStop(0, '#FFD700'); // золото
-                    gradient.addColorStop(0.7, '#B8860B'); // тёмное золото
-                    gradient.addColorStop(1, '#8B6508'); // коричневатое золото
-                } else {
-                    // Обычное яблоко
-                    gradient.addColorStop(0, '#ff6347');
-                    gradient.addColorStop(0.7, '#dc143c');
-                    gradient.addColorStop(1, '#8b0000');
-                }
-
-                ctx.fillStyle = gradient;
-
-                // Рисуем основу яблока
-                ctx.beginPath();
-                ctx.arc(
-                    centerX,
-                    centerY,
-                    gridSize / 2,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
-
-                // Блик
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-                ctx.beginPath();
-                ctx.arc(
-                    centerX - gridSize / 6,
-                    centerY - gridSize / 6,
-                    gridSize / 6,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
-
-                // Стебелёк
-                ctx.strokeStyle = '#8B4513';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY - gridSize / 2);
-                ctx.lineTo(centerX + gridSize / 6, centerY - gridSize / 2 - gridSize / 4);
-                ctx.stroke();
-            } catch (e) {
-                console.error('Ошибка при рисовании еды:', e);
-            }
+            // "Хвостик" яблока
+            ctx.fillStyle = '#78350f'; // коричневый
+            ctx.fillRect(centerX - 2, food.y * gridSize, 4, 6);
         }
 
         function moveSnake() {
@@ -512,11 +418,13 @@
 
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
 
+            // Проверка столкновения со стеной
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
                 gameOver();
                 return;
             }
 
+            // Проверка столкновения с собой
             for (let i = 1; i < snake.length; i++) {
                 if (snake[i].x === head.x && snake[i].y === head.y) {
                     gameOver();
@@ -526,6 +434,7 @@
 
             snake.unshift(head);
 
+            // Если съели еду
             if (head.x === food.x && head.y === food.y) {
                 score++;
                 document.getElementById('score').textContent = 'Счёт: ' + score;
@@ -541,28 +450,6 @@
                     }
                 }
 
-                // Проверяем уровень
-                updateSnakeLevel();
-
-                // Показываем достижение каждые 10 уровней
-                if (score % 10 === 0) {
-                    let achievementText = '';
-                    switch (snakeLevel) {
-                        case 2:
-                            achievementText = 'Достижение: Золотая змея!';
-                            break;
-                        case 3:
-                            achievementText = 'Достижение: Огненная змея!';
-                            break;
-                        case 4:
-                            achievementText = 'Достижение: Сияющая змея!';
-                            break;
-                        default:
-                            achievementText = `Достижение: Уровень ${snakeLevel}!`;
-                    }
-                    showAchievement(achievementText);
-                }
-
                 // Создаём новую еду
                 generateFood();
             } else {
@@ -571,83 +458,74 @@
         }
 
         function gameLoop(currentTime) {
-            if (gameActive) {
-                window.requestAnimationFrame(gameLoop);
+            window.requestAnimationFrame(gameLoop);
 
-                if (currentTime - lastMoveTime >= moveInterval) {
-                    moveSnake();
-                    lastMoveTime = currentTime;
-                }
+            // Вычисляем, прошло ли достаточно времени с последнего движения
+            if (currentTime - lastMoveTime >= moveInterval && gameActive) {
+                moveSnake();
+                lastMoveTime = currentTime;
+            }
 
-                try {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    drawSnake();
-                    drawFood();
-                } catch (e) {
-                    console.error('Ошибка в gameLoop:', e);
-                }
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawSnake();
+                drawFood();
+            } catch (e) {
+                console.error('Ошибка в gameLoop:', e);
             }
         }
 
         function gameOver() {
             gameActive = false;
-
-            if (playerName) {
-                // Отправляем результат на сервер
-                fetch('/save_score', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: playerName, score: score})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        console.log('Результат сохранён.');
-                    } else {
-                        console.log('Ошибка сохранения.');
-                    }
-                })
-                .catch(err => {
-                    console.error('Ошибка при сохранении результата:', err);
-                });
-            }
-
-            // Перезапускаем игру
-            resetGame();
-            gameActive = true;
-            window.requestAnimationFrame(gameLoop);
+            setTimeout(() => {
+                alert('Игра окончена! Счёт: ' + score);
+                resetGame();
+            }, 100);
         }
 
         document.addEventListener('keydown', e => {
-            if (!gameActive) return;
+            if (!gameActive) return; // Игнорируем, если игра не активна
 
+            // Предотвращаем "разворот на 180"
             switch(e.code) {
+                // WASD (английская)
                 case 'KeyW':
+                // Ц (русская)
                 case 'KeyC':
+                // Стрелка вверх
                 case 'ArrowUp':
                     if (dy === 0) {
                         dx = 0;
                         dy = -1;
                     }
                     break;
+                // S (английская)
                 case 'KeyS':
+                // Ф (русская)
                 case 'KeyF':
+                // Стрелка вниз
                 case 'ArrowDown':
                     if (dy === 0) {
                         dx = 0;
                         dy = 1;
                     }
                     break;
+                // A (английская)
                 case 'KeyA':
+                // Ы (русская)
                 case 'KeyY':
+                // Стрелка влево
                 case 'ArrowLeft':
                     if (dx === 0) {
                         dx = -1;
                         dy = 0;
                     }
                     break;
+                // D (английская)
                 case 'KeyD':
+                // В (русская)
                 case 'KeyV':
+                // Стрелка вправо
                 case 'ArrowRight':
                     if (dx === 0) {
                         dx = 1;
@@ -688,10 +566,11 @@
             }
         });
 
-        // Запускаем с загрузкой рекордов
+        // Запускаем игру
         try {
             loadBestScore();
-            getPlayerName(); // Проверяем имя
+            getPlayerName();
+            window.requestAnimationFrame(gameLoop);
         } catch (e) {
             console.error('Ошибка при запуске игры:', e);
             alert('Ошибка при запуске игры. Проверь консоль.');
